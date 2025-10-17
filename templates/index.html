@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blood Group Detection</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    /* Smooth bar fill animation */
+    .bar {
+      width: 0;
+      transition: width 1.2s ease-in-out;
+    }
+
+    /* Floating blood drops animation */
+    @keyframes float {
+      0% { transform: translateY(0) }
+      50% { transform: translateY(-20px) }
+      100% { transform: translateY(0) }
+    }
+    .float {
+      animation: float 3s ease-in-out infinite;
+    }
+
+    /* Fade-in for image */
+    .fade-in {
+      opacity: 0;
+      transition: opacity 1s ease-in-out;
+    }
+    .fade-in.show {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-r from-red-100 via-red-200 to-red-300 min-h-screen flex items-center justify-center overflow-hidden">
+
+  <div class="relative w-full max-w-md bg-white p-8 rounded-3xl shadow-2xl text-center overflow-hidden">
+
+    <!-- Floating blood drops -->
+    <i class="fas fa-tint text-red-400 absolute float" style="top:10%; left:20%; font-size:2rem;"></i>
+    <i class="fas fa-tint text-red-500 absolute float" style="top:30%; left:70%; font-size:2.5rem;"></i>
+    <i class="fas fa-tint text-red-300 absolute float" style="top:60%; left:40%; font-size:1.5rem;"></i>
+
+    <h1 class="text-3xl font-bold text-red-700 mb-6 relative z-10">Blood Group Detection</h1>
+
+    <!-- Image Preview -->
+    <img id="preview" src="" alt="" class="mx-auto mb-4 rounded-lg shadow-lg max-h-64 fade-in relative z-10">
+
+    <!-- Upload Button -->
+    <label class="block mb-4 relative z-10">
+      <span class="text-gray-700 font-medium">Upload your image:</span>
+      <input type="file" id="imageUpload" accept="image/*" class="mt-2 block w-full text-sm text-gray-500
+          file:mr-4 file:py-2 file:px-4
+          file:rounded-full file:border-0
+          file:text-sm file:font-semibold
+          file:bg-red-500 file:text-white
+          hover:file:bg-red-600
+      "/>
+    </label>
+
+    <!-- Detect Button -->
+    <button id="detectBtn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-full transition duration-300 relative z-10 transform hover:scale-105">
+      Detect Blood Group
+    </button>
+
+    <!-- Prediction Result -->
+    <div id="result" class="mt-6 p-4 rounded-lg text-xl font-bold hidden relative z-10 transition-all duration-500">
+      Your blood group is: <span id="bloodGroup"></span>
+    </div>
+
+    <!-- Confidence Bars -->
+    <div id="confidence" class="mt-4 relative z-10 text-left hidden">
+      <div class="mb-2 font-semibold">Confidence:</div>
+      <div id="confidenceBars" class="space-y-3"></div>
+    </div>
+
+  </div>
+
+  <script>
+    const imageUpload = document.getElementById('imageUpload');
+    const preview = document.getElementById('preview');
+    const detectBtn = document.getElementById('detectBtn');
+    const result = document.getElementById('result');
+    const bloodGroupSpan = document.getElementById('bloodGroup');
+    const confidenceDiv = document.getElementById('confidence');
+    const confidenceBars = document.getElementById('confidenceBars');
+
+    const bloodColors = {
+      'A': 'bg-red-500',
+      'B': 'bg-blue-500',
+      'AB': 'bg-purple-500',
+      'O': 'bg-green-500'
+    };
+
+    imageUpload.addEventListener('change', function() {
+      const file = this.files[0];
+      if(file){
+        preview.src = URL.createObjectURL(file);
+        preview.classList.add('show'); // fade-in
+      }
+    });
+
+    detectBtn.addEventListener('click', async function() {
+      if(!imageUpload.files[0]){
+        alert("Please upload an image first!");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', imageUpload.files[0]);
+
+      try {
+        const response = await fetch('/predict', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await response.json();
+        if(data.blood_group){
+          const bloodGroup = data.blood_group;
+          bloodGroupSpan.textContent = bloodGroup;
+
+          // Update result background color
+          result.className = `mt-6 p-4 rounded-lg text-xl font-bold relative z-10 transition-all duration-500 ${bloodColors[bloodGroup]}`;
+          result.classList.remove('hidden');
+
+          // Animate confidence bars
+          confidenceBars.innerHTML = '';
+          for (let bg in data.confidence) {
+            const barContainer = document.createElement('div');
+            const label = document.createElement('div');
+            label.textContent = `${bg}: ${data.confidence[bg]}%`;
+            label.className = "text-gray-700 mb-1 font-medium";
+
+            const barBg = document.createElement('div');
+            barBg.className = "w-full h-5 bg-gray-200 rounded-full overflow-hidden";
+
+            const bar = document.createElement('div');
+            bar.className = `bar h-5 rounded ${bloodColors[bg]}`;
+            bar.style.width = '0%';
+
+            barBg.appendChild(bar);
+            barContainer.appendChild(label);
+            barContainer.appendChild(barBg);
+            confidenceBars.appendChild(barContainer);
+
+            // Animate fill
+            setTimeout(() => {
+              bar.style.width = `${data.confidence[bg]}%`;
+            }, 100);
+          }
+          confidenceDiv.classList.remove('hidden');
+
+        } else {
+          alert("Prediction failed!");
+        }
+      } catch (error) {
+        console.error(error);
+        alert("Error connecting to the server.");
+      }
+    });
+  </script>
+</body>
+</html>
+
